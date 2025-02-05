@@ -14,7 +14,7 @@ URL:            https://git.launchpad.net/~oem-solutions-engineers/libfprint-2-t
 Source0:        libfprint-2-tod1-broadcom-%{major_version}.tar.gz
 BuildArch:      x86_64
 
-BuildRequires:  git, tar, gzip
+BuildRequires:  git, tar, gzip, systemd
 
 %description
 This package provides the Broadcom fingerprint driver required
@@ -95,3 +95,8 @@ install -D -m 0755 var/lib/fprint/fw/cv3plus/key.pem %{buildroot}%{_sharedstated
 %attr(644, -, -) %{_sharedstatedir}/fprint/fw/cv3plus/bcmsbiCitadelB0_1.otp
 %attr(644, -, -) %{_sharedstatedir}/fprint/fw/cv3plus/bcmsbiCitadelB0_7.otp
 %attr(755, -, -) %{_sharedstatedir}/fprint/fw/cv3plus/key.pem
+
+%changelog
+* Wed Feb 5 2025 Federico Manzella <ferdiu.manzella@gmail.com> 6.1.26
+- First release
+%autochangelog

@@ -11,7 +11,7 @@ Provides:       libfprint-2-tod1-broadcom libfprint-2-tod1-broadcom-cv3plus
 
 License:        Proprietary
 URL:            https://git.launchpad.net/~oem-solutions-engineers/libfprint-2-tod1-broadcom/+git/libfprint-2-tod1-broadcom
-Source0:        %{name}-%{major_version}.tar.gz
+# Source0:        %{name}-%{major_version}.tar.gz
 
 BuildRequires:  git, tar, gzip, systemd
 
@@ -21,8 +21,9 @@ for several Dell Latitude laptops.
 
 %prep
 git clone --depth 1 --branch upstream %{URL} %{_builddir}/libfprint-2-tod1-broadcom
-cd libfprint-2-tod1-broadcom
-git archive --format=tar --prefix=%{name}-%{major_version}/ HEAD | gzip > %{_topdir}/SOURCES/%{name}-%{major_version}.tar.gz
+# TODO: maybe add "source" at some point
+# cd libfprint-2-tod1-broadcom
+# git archive --format=tar --prefix=%{name}-%{major_version}/ HEAD | gzip > ../%{name}-%{major_version}.tar.gz
 
 %build
 

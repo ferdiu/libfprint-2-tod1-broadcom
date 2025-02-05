@@ -1,0 +1,1 @@
+This is the repackaging of the Broadcom 5843 driver for Fedora. The binary is repackaged from Ubuntu: https://git.launchpad.net/~oem-solutions-engineers/libfprint-2-tod1-broadcom/+git/libfprint-2-tod1-broadcom

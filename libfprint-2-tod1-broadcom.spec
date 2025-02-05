@@ -14,7 +14,7 @@ URL:            https://git.launchpad.net/~oem-solutions-engineers/libfprint-2-t
 Source0:        libfprint-2-tod1-broadcom-%{major_version}.tar.gz
 BuildArch:      x86_64
 
-BuildRequires:  git
+BuildRequires:  git, tar, gzip
 
 %description
 This package provides the Broadcom fingerprint driver required

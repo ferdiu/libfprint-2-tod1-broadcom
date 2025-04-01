@@ -29,7 +29,7 @@ This package provides the Broadcom fingerprint driver required
 for several Dell Latitude laptops.
 
 %prep
-git clone --depth 1 --branch upstream %{URL} %{_builddir}/libfprint-2-tod1-broadcom
+git clone --depth 1 --branch jammy %{URL} %{_builddir}/libfprint-2-tod1-broadcom
 # TODO: maybe add "source" at some point
 # cd libfprint-2-tod1-broadcom
 # git archive --format=tar --prefix=%{name}-%{major_version}/ HEAD | gzip > ../%{name}-%{major_version}.tar.gz

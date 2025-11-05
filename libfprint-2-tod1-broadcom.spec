@@ -1,6 +1,6 @@
 %global debug_package       %{nil}
 %define major_version       6.1.26
-%define release_version     4
+%define release_version     5
 %define cs3dir              libfprint-2-tod1-broadcom
 %define cspkus3dir          %{cs3dir}-cv3plus
 # NOTE: at the time of writing, the CV3plus libraries where on jammy branch (commit f73dea98646c562f4660c900716ea4dae7b153a7)
@@ -117,6 +117,9 @@ install -D -m 0755 %{cspkus3dir}/var/lib/fprint/fw/cv3plus/key.pem %{buildroot}%
 %attr(755, -, -) %{_sharedstatedir}/fprint/.broadcomCv3plusFW/key.pem
 
 %changelog
+* Wed Nov 5 2025 Federico Manzella <ferdiu.manzella@gmail.com> 6.1.26-5
+- fix: wont build anymore due to tag change in soruce repository
+
 * Fri Apr 18 2025 Federico Manzella <ferdiu.manzella@gmail.com> 6.1.26-4
 - Add missing CV3plus libraries
 

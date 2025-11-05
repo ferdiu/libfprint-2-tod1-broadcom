@@ -3,6 +3,8 @@
 %define release_version     4
 %define cs3dir              libfprint-2-tod1-broadcom
 %define cspkus3dir          %{cs3dir}-cv3plus
+# NOTE: at the time of writing, the CV3plus libraries where on jammy branch (commit f73dea98646c562f4660c900716ea4dae7b153a7)
+%define cv3pluscommit       f73dea98646c562f4660c900716ea4dae7b153a7
 
 Name:           libfprint-2-tod1-broadcom
 Version:        %{major_version}
@@ -33,12 +35,12 @@ for several Dell Latitude laptops.
 %prep
 # Clone latest for CV3
 git clone --depth 1 --branch ubuntu/latest %{URL} %{_builddir}/%{cs3dir}
-# Clone latest for CV3plus
-git clone --depth 1 --branch jammy %{URL} %{_builddir}/%{cspkus3dir}
-# NOTE: at the time of writing, the CV3plus libraries where on jammy branch (commit f73dea98646c562f4660c900716ea4dae7b153a7)
-# TODO: maybe add "source" at some point
-# cd libfprint-2-tod1-broadcom
-# git archive --format=tar --prefix=%{name}-%{major_version}/ HEAD | gzip > ../%{name}-%{major_version}.tar.gz
+# Clone latest for CV3plus TODO: this should be moved to a different package!
+git clone --depth 1 %{URL} %{_builddir}/%{cspkus3dir}
+pushd %{_builddir}/%{cspkus3dir}
+git fetch --depth 1 origin %{cv3pluscommit}
+git checkout %{cv3pluscommit}
+popd
 
 %build
 

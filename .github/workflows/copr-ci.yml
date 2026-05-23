@@ -1,0 +1,149 @@
+# Monitors three upstream projects for new releases and triggers a COPR build
+# for each package when a newer version is available than what is currently
+# in the ferdiu/libfprint-2-tod1-broadcom COPR project.
+#
+# TODO: this workflow needs to be tested after https://git.launchpad.net comes back to life (DDoS vs canonical problem)
+#
+# Upstreams tracked:
+#   libfprint-2-tod1-broadcom  — https://git.launchpad.net/~oem-solutions-engineers/libfprint-2-tod1-broadcom/+git/libfprint-2-tod1-broadcom
+#
+# Required GitHub repository secrets (Settings → Secrets → Actions):
+#   COPR_BUILD_L  — copr-cli login    (from https://copr.fedorainfracloud.org/api)
+#   COPR_BUILD_T  — copr-cli token    (from https://copr.fedorainfracloud.org/api)
+#
+# The copr-cli config section name must be "copr-cli" (default).
+# Download your token config from https://copr.fedorainfracloud.org/api and
+# split the login and token values into the two secrets above.
+
+name: COPR CI build
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 02:00 UTC daily — after most upstream release windows
+  workflow_dispatch:        # allow manual trigger from the Actions tab
+
+env:
+  COPR_USERNAME:    ferdiu
+  COPR_PROJECT:     libfprint-2-tod1-broadcom
+  COPR_URL:         https://copr.fedorainfracloud.org
+  GIT_USER_NAME:    ferdiu
+  GIT_USER_EMAIL:   ferdiu@users.noreply.github.com
+
+  # Upstream repositories for version polling
+  LIBFPRINT2_REPO:  https://git.launchpad.net/~oem-solutions-engineers/libfprint-2-tod1-broadcom/+git/libfprint-2-tod1-broadcom
+
+  # Spec files (relative to GITHUB_WORKSPACE)
+  LIBFPRINT2_SPEC:  libfprint-2-tod1-broadcom.spec
+
+##############################################################################
+# Job 1: Poll all upstreams and expose their latest versions
+##############################################################################
+jobs:
+  GetLatestVersions:
+    runs-on: ubuntu-latest
+    outputs:
+      LIBFPRINT2_VERSIN:  ${{ steps.versions.outputs.LIBFPRINT2_VERSIN }}
+
+    steps:
+      - name: Resolve latest upstream versions
+        id: versions
+        run: |
+          set -euo pipefail
+
+          latest_tag() {
+            # Returns the latest semver tag from a git remote, stripping the 'v' prefix
+            git ls-remote --tags --refs "$1" \
+              | awk '{print $2}' \
+              | sed 's#refs/tags/##' \
+              | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+\+tod1' \
+              | sort -V \
+              | tail -n 1 \
+              | sed 's/^v//' \
+              | sed 's/\+tod1$//'
+          }
+
+          LIBFPRINT2_VERSIN=$(latest_tag  "${{ env.LIBFPRINT2_REPO }")
+
+          echo "libfprint-2-tod1-broadcom  latest: $LIBFPRINT2_VERSIN"
+
+          [ -n "$LIBFPRINT2_VERSIN"  ] || { echo "ERROR: could not resolve libfprint-2-tod1-broadcom version";  exit 1; }
+
+          echo "LIBFPRINT2_VERSIN=$LIBFPRINT2_VERSIN"   >> "$GITHUB_OUTPUT"
+
+##############################################################################
+# Job 2: Build libfprint-2-tod1-broadcom (and its subpackages) if upstream is ahead of COPR
+##############################################################################
+  Buildlibfprint-2-tod1-broadcom:
+    needs: GetLatestVersions
+    runs-on: ubuntu-latest
+    container: fedora:latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository }}
+
+      - name: Install dependencies
+        run: dnf install -y -q copr-cli python3 git rpm-build rpmdevtools
+
+      - name: Configure copr-cli
+        run: |
+          mkdir -p "$HOME/.config"
+          cat > "$HOME/.config/copr" << EOF
+          [copr-cli]
+          login    = ${{ secrets.COPR_BUILD_L }}
+          username = ${{ env.COPR_USERNAME }}
+          token    = ${{ secrets.COPR_BUILD_T }}
+          copr_url = ${{ env.COPR_URL }}
+          EOF
+
+      - name: Compare upstream version with COPR
+        id: check_libfprint-2-tod1-broadcom
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          UPSTREAM="${{ needs.GetLatestVersions.outputs.LIBFPRINT2_VERSIN }}"
+
+          COPR_VERSION=$(copr-cli get-package \
+            "${{ env.COPR_USERNAME }}/${{ env.COPR_PROJECT }}" \
+            --name libfprint-2-tod1-broadcom \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["latest_build"]["source_package"]["version"])' \
+            2>/dev/null || echo "")
+
+          echo "Upstream : $UPSTREAM"
+          echo "COPR     : ${COPR_VERSION:-<none>}"
+
+          # Normalise to zero-padded integers for comparison (handles x.y.z)
+          norm() { echo "$1" | awk -F. '{printf "%05d%05d%05d\n", $1, $2, $3}'; }
+
+          if [ -z "$COPR_VERSION" ] || [ "$(norm "$UPSTREAM")" -gt "$(norm "${COPR_VERSION%-*}")" ]; then
+            echo "START_BUILD=true" >> "$GITHUB_ENV"
+            echo "LIBFPRINT2_BUILDVERSION=$UPSTREAM" >> "$GITHUB_ENV"
+            echo "→ COPR build needed"
+          else
+            echo "START_BUILD=false" >> "$GITHUB_ENV"
+            echo "→ COPR already up to date, skipping"
+          fi
+
+      - name: Patch version into spec file
+        if: env.START_BUILD == 'true'
+        run: |
+          sed -i "s/^Version:.*/Version:        ${{ env.LIBFPRINT2_BUILDVERSION }}/" \
+            "$GITHUB_WORKSPACE/${{ env.LIBFPRINT2_SPEC }"
+
+      - name: Trigger COPR build for libfprint-2-tod1-broadcom
+        if: env.START_BUILD == 'true'
+        run: |
+          echo "Downloading source..."
+          spectool -g -C "$GITHUB_WORKSPACE/" "$GITHUB_WORKSPACE/${{ env.LIBFPRINT2_SPEC }"
+
+          echo "Building sRPM..."
+          rpmbuild -bs \
+            --define "_sourcedir $GITHUB_WORKSPACE" \
+            --define "_specdir $GITHUB_WORKSPACE" \
+            --define "_srcrpmdir $GITHUB_WORKSPACE" \
+            $GITHUB_WORKSPACE/${{ env.LIBFPRINT2_SPEC }
+
+          echo "Starting COPR build for libfprint-2-tod1-broadcom ${{ env.LIBFPRINT2_BUILDVERSION }}"
+          copr-cli build "${{ env.COPR_PROJECT }}" $GITHUB_WORKSPACE/*.src.rpm
